@@ -9,11 +9,23 @@
 #include "..\\..\\public\\errcode.h"
 #include "..\\..\\public\\packhead.h"
 #include <xutility>
+#include <algorithm>
+#include <vector>
 #pragma comment(lib, "ws2_32.lib")
 
 #define SERVER_PORT 8000
 
 std::vector<client_addr> server::cli_info;
+
+
+class compare_is_fd
+{
+	SOCKET fd;
+public:
+	compare_is_fd(SOCKET infd) : fd(infd) {}
+	bool operator()(client_addr cli_info) const { return cli_info.cli_fd == fd; }
+};
+
 
 server::server()
 {
@@ -66,7 +78,6 @@ int server::server_login()
 	}
 	std::cout << "listen success" << std::endl;
 
-	//accpet接受链接
 	int addr_len;
 	struct sockaddr_in cliaddr;
 	SOCKET cli_fd;
@@ -94,76 +105,88 @@ int server::server_login()
 			{
 				cli_fd = accept(listen_fd, (struct sockaddr*)&cliaddr, &addr_len);
 				std::cout << "accept client success" << std::endl;
-				FD_SET(cli_fd,&allset);
+				FD_SET(cli_fd, &allset);
 				if (cli_fd > max_fd)
 					max_fd = cli_fd;
 
-				clientinfo = fill_arg(cli_fd, cliaddr, "NULL");	
+				clientinfo = fill_arg(cli_fd, cliaddr, "NULL");
+				cli_info.push_back(clientinfo);
 			}
-			else if(FD_ISSET())//在这里做客户端读写控制
-			{}
+			for (int i = 0; i < cli_info.size(); ++i)	//在这里做客户端读写控制
+			{
+				if (FD_ISSET(cli_info.at(i).cli_fd, &rset))
+				{
+					listenCli(&cli_info.at(i), &rset, &allset);
+				}
+			}
 		}
-		
-		//一直循环，每握手成功一次，便把客户端fd，addr存入容器cli_info，然后创建线程去监听消息
-		HANDLE cli_handle = CreateThread(NULL, 256*1024, listenCli, (LPVOID)&clientinfo, 0, NULL);
-		//WaitForSingleObject(cli_handle, INFINITE);
 	}
 	return RUN_SUCCESS;
 }
+
+
+
 /*监听客户端线程*/
-DWORD WINAPI server::listenCli(LPVOID pM)
+DWORD WINAPI server::listenCli(LPVOID pM, fd_set * rset, fd_set * allset)
 {
 	client_addr clientinfo = *(client_addr *)pM;
 	int ret;
 	int recv_len;
 	Pack_head pack_head;
-	while (1)
+
+	ret = recv(clientinfo.cli_fd, (char *)&pack_head, sizeof(pack_head), 0);
+	if (ret == SOCKET_ERROR) {
+		std::cout << "RECV pack_head error!" << std::endl;
+		closesocket(clientinfo.cli_fd);
+		FD_CLR(clientinfo.cli_fd, allset);
+		printf("bye!");
+		return RECV_FAILED;
+	}
+	recv_len = pack_head.msg_len;
+	SOCKET dfd = pack_head.dfd;
+	switch ((CMDLIST)pack_head.cmdtype)
 	{
-		ret = recv(clientinfo.cli_fd, (char *)&pack_head, sizeof(pack_head), 0);
-		if (ret == SOCKET_ERROR){
-			std::cout << "RECV pack_head error!" << std::endl;
-			return RECV_FAILED;
-		}
-		recv_len = pack_head.msg_len;
-		SOCKET dfd = pack_head.dfd;
-		switch ((CMDLIST)pack_head.cmdtype)
+		case ARP:/*如果是ARP包，则记录该客户端的fd，名字*/
 		{
-			case ARP:/*如果是ARP包，则记录该客户端的fd，名字*/
-			{
-				strcpy_s(clientinfo.name, pack_head.name);
-				ret = recv_arp(clientinfo, recv_len); 
-				if (ret != RUN_SUCCESS)
-					return ret;
+			strcpy_s(clientinfo.name, pack_head.name);
+			ret = recv_arp(clientinfo, recv_len);
+			if (ret != RUN_SUCCESS)
+				return ret;
+			break;
+		}
+		case LOOK:/*如果对方是LOOK,则发送给对方在线人员名单*/
+		{
+			ret = send_onlinelist(clientinfo, sizeof("-look"));
+			if (ret != RUN_SUCCESS)
+				return ret;
+			break;
+		}
+		case TALK:/*如果是TALK,直接转发到相对应fd客户端处即可*/
+		{
+			strcpy_s(clientinfo.name, pack_head.name);
+			ret = trans_word(clientinfo, dfd, recv_len);
+			if (ret != RUN_SUCCESS)
+				//		return ret;
 				break;
-			}
-			case LOOK:/*如果对方是LOOK,则发送给对方在线人员名单*/
-			{
-				ret= send_onlinelist(clientinfo, sizeof("-look"));
-				if (ret != RUN_SUCCESS)
-					return ret;
-				break;
-			}
-			case TALK:/*如果是TALK,直接转发到相对应fd客户端处即可*/
-			{
-				strcpy_s(clientinfo.name, pack_head.name);
-				ret = trans_word(clientinfo, dfd, recv_len);
-				if (ret != RUN_SUCCESS)
-			//		return ret;
-				break;
-			}
 		}
 	}
 	return 0;
 }
 
-int server::recv_arp(client_addr clientinfo,int datalen)
+
+
+int server::recv_arp(client_addr clientinfo, int datalen)
 {
 	int ret;
 	char recv_data[40 * 1024];
 	memset(recv_data, 0, 40 * 1024);
 	client_addr tempinfo;
 	tempinfo = fill_arg(clientinfo.cli_fd, clientinfo.cli_addr, clientinfo.name);
-	cli_info.push_back(tempinfo);
+	/*根据clientinfo.cli_fd查找cli_info对应的vector,把name替换*/
+	std::vector<client_addr>::iterator it;
+	it = std::find_if(cli_info.begin(), cli_info.end(), compare_is_fd(clientinfo.cli_fd));
+	*it = tempinfo;
+
 	ret = recv(tempinfo.cli_fd, recv_data, datalen, 0);
 	if (ret == SOCKET_ERROR) {
 		std::cout << "RECV data error" << std::endl;
@@ -174,7 +197,7 @@ int server::recv_arp(client_addr clientinfo,int datalen)
 	return RUN_SUCCESS;
 }
 
-int server::send_onlinelist(client_addr clientinfo,int src_len)
+int server::send_onlinelist(client_addr clientinfo, int src_len)
 {
 	std::cout << "client income online request:" << std::endl;
 	Pack_head p_head;
@@ -184,7 +207,7 @@ int server::send_onlinelist(client_addr clientinfo,int src_len)
 	memset(list_data, 0, 40 * 1024);
 	int mes_len, len = 0;
 	int ret;
-	
+
 	ret = recv(clientinfo.cli_fd, message, src_len, 0);
 	if (ret == SOCKET_ERROR) {
 		std::cout << "RECV data error" << std::endl;
@@ -210,7 +233,7 @@ int server::send_onlinelist(client_addr clientinfo,int src_len)
 	return RUN_SUCCESS;
 }
 
-int server::trans_word(client_addr clientinfo,SOCKET dfd, int data_len)
+int server::trans_word(client_addr clientinfo, SOCKET dfd, int data_len)
 {
 	char recv_data[40 * 1024];
 	char message[40 * 1024];
@@ -231,7 +254,7 @@ int server::trans_word(client_addr clientinfo,SOCKET dfd, int data_len)
 	ret = send(dfd, message, mes_len, 0);
 	if (ret == SOCKET_ERROR) {
 		std::cout << "SEND data error" << std::endl;
-			return SEND_FAILED;
+		return SEND_FAILED;
 	}
 	return RUN_SUCCESS;
 }

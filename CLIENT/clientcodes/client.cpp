@@ -128,6 +128,10 @@ int client::send_look_request()
 	return RUN_SUCCESS;
 }
 
+
+/* ARP包帧格式：
+	" pack_head + payload(hello world) "
+*/
 int client::send_arp()
 {
 	//发送ARP包
