@@ -218,7 +218,7 @@ DWORD WINAPI client::listenSer(LPVOID pM)
 			}
 			case TALK:
 			{
-				std::cout << std::endl << "recv:" << std::endl;
+				std::cout << std::endl << "recv from:" << pack_head.name << std::endl;
 				ret = recv(fd, listen_buffer, pack_head.msg_len, 0);
 				if (ret == SOCKET_ERROR) {
 					std::cout << "RECV data error" << std::endl;

@@ -17,6 +17,7 @@ typedef struct _pack_head
 	int msg_len;
 	char name[24];
 	int name_length;
+	char passwd[24];
 	CMDLIST cmdtype;
 }Pack_head;
 
