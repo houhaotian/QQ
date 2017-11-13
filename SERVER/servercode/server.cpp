@@ -166,9 +166,15 @@ DWORD WINAPI server::listenCli(LPVOID pM, fd_set * rset, fd_set * allset)
 			strcpy_s(clientinfo.name, pack_head.name);
 			ret = trans_word(clientinfo, dfd, recv_len);
 			if (ret != RUN_SUCCESS)
-				//		return ret;
-				break;
+				return ret;
+			break;
 		}
+		case ZHUCE:
+		{
+			ret = zhuce_program(clientinfo,recv_len);
+		}
+		default:
+			break;
 	}
 	return 0;
 }
@@ -248,10 +254,45 @@ int server::trans_word(client_addr clientinfo, SOCKET dfd, int data_len)
 		return RECV_FAILED;
 	}
 	std::cout << recv_data << std::endl;
-	memset(message, 0, 40 * 1024);
 	p_head = construct_packethead(clientinfo.cli_fd, dfd, data_len, clientinfo.name, TALK);//组帧头
 	mes_len = get_package(message, recv_data, p_head);
 	ret = send(dfd, message, mes_len, 0);
+	if (ret == SOCKET_ERROR) {
+		std::cout << "SEND data error" << std::endl;
+		return SEND_FAILED;
+	}
+	return RUN_SUCCESS;
+}
+
+int server::zhuce_program(client_addr clientinfo, int data_len)
+{
+	int ret;
+	char recv_data[40 * 1024];
+	char message[40 * 1024];
+	Pack_head p_head;
+	int mes_len;
+
+	memset(recv_data, 0, 40 * 1024);
+	memset(message, 0, 40 * 1024);
+
+	ret = recv(clientinfo.cli_fd, recv_data, data_len, 0);
+	if (ret == SOCKET_ERROR) {
+		std::cout << "RECV data error" << std::endl;
+		return RECV_FAILED;
+	}
+	std::cout << recv_data << std::endl;
+#if 0
+	/*把账号放在vector里*/
+	tempinfo = fill_arg(clientinfo.cli_fd, clientinfo.cli_addr, clientinfo.name);
+	/*根据clientinfo.cli_fd查找cli_info对应的vector,把name替换*/
+	std::vector<client_addr>::iterator it;
+	it = std::find_if(cli_info.begin(), cli_info.end(), compare_is_fd(clientinfo.cli_fd));
+	*it = tempinfo;
+#endif
+
+	p_head = construct_packethead(clientinfo.cli_fd, 0, 1, "NULL", ZHUCE);//组帧头
+	mes_len = get_package(message, "1", p_head);
+	ret = send(clientinfo.cli_fd, message, mes_len, 0);
 	if (ret == SOCKET_ERROR) {
 		std::cout << "SEND data error" << std::endl;
 		return SEND_FAILED;

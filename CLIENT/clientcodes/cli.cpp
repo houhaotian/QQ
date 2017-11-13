@@ -1,5 +1,6 @@
 #include "client.h"
 #include <iostream>
+#include "..\\..\\public\\errcode.h"
 
 int main()
 {
@@ -7,7 +8,7 @@ int main()
 	client c1;
 
 	ret = c1.client_login();
-	if (ret != 0)
+	if (ret != RUN_SUCCESS)
 	{
 		printf("something is wrong!");
 		return 0;

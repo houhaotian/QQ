@@ -5,6 +5,7 @@ typedef struct _client_addr
 	SOCKET cli_fd;
 	struct sockaddr_in cli_addr;
 	char name[24];
+	char acount[24];
 }client_addr;
 
 

@@ -15,6 +15,11 @@
 #define SERVER_IP "127.0.0.1"
 #define CLIENT_PORT 8000
 
+
+using namespace std;
+
+int client::zhuCeFlag = 0;
+
 client::client()
 {
 }
@@ -56,10 +61,23 @@ int client::client_login()
 	/*开启监听线程，接收服务器发过来的数据*/
 	HANDLE listen_to_server_handle = CreateThread(NULL, 64 * 1024, listenSer, (LPVOID)&fd, 0, NULL);
 
+	//注册
+	/*循环，直到注册成功，ARP包只是发了名字，也可以保留，但是server端应该将账号密码名字以及fd存放在一起。*/
+	/*server端首先看注册的账号在sql里有没有，没有则通过注册，然后将账号密码写入sql中。然后在sql中标记登录状态。*/
+	/*登录时一旦账号密码正确，还要看是否已经登录，是则不让登录，并给在线人员发警告*/
+	/*sql中应将账号密码和个人昵称绑定好不然做不了上边功能。同时在线vector只要维护fd，名字,账号就够了*/
+	ret = zhuce();
+	if (ret != RUN_SUCCESS)
+	{
+		closesocket(fd);
+		return ZHUCE_FAILED;
+	}
+
 	//发送ARP包
 	ret = send_arp();
 	if (ret != RUN_SUCCESS)
 		return ret;
+
 	return RUN_SUCCESS;
 }
 
@@ -152,6 +170,59 @@ int client::send_arp()
 	return RUN_SUCCESS;
 }
 
+int client::zhuce()
+{
+	int i = 3,ret;
+	int flag = 0;
+	int mes_len;
+	char arp_message[1024];
+	std::string acount,passwd;
+	std::string temp_data;
+
+	cout << "登录界面,type 1注册, 2登录, 3退出" << endl;
+	cin >> flag;
+	switch (flag)
+	{
+		case 1:
+		{
+			while (i--)
+			{
+				cout << "請輸入用戶名" << endl;
+				cin >> acount;
+				cout << "请输入密码" << endl;
+				cin >> passwd;
+
+				temp_data += acount;
+				temp_data += passwd;
+
+				construct_packet_head(fd, 0, temp_data.length(), "NULL", ZHUCE);//组帧头
+				mes_len = get_package(arp_message, temp_data, mypackhead);//组帧，返回整个buffer长度
+				ret = send(fd, arp_message, mes_len, 0);
+				system("cls");
+				cout << "loading.";
+				Sleep(1000);
+				cout << ".";
+				Sleep(1000);
+				cout << ".";
+				Sleep(1000);
+				cout << endl;
+				if (zhuCeFlag == 1)
+					return RUN_SUCCESS;
+				cout << "用户名或密码重复，请重新输入" << endl;
+			}
+			break;
+		}
+		case 2:
+		{
+			break;
+		}
+		default:
+			return ZHUCE_FAILED;
+	}
+
+	return ZHUCE_FAILED;
+}
+
 /*message前面放pack_head,后面放纯数据*/
 int client::get_package(char *message, std::string temp, Pack_head mypackhead)
 {
@@ -227,6 +298,19 @@ DWORD WINAPI client::listenSer(LPVOID pM)
 				std::cout << listen_buffer << std::endl;
 				memset(listen_buffer, 0, 40 * 1024);
 				break; 
+			}
+			case ZHUCE:
+			{
+				ret = recv(fd, listen_buffer, pack_head.msg_len, 0);
+				if (ret == SOCKET_ERROR) {
+					std::cout << "RECV data error" << std::endl;
+					return RECV_FAILED;
+				}
+				if (listen_buffer[0] == 0)
+					zhuCeFlag = 0;
+				else
+					zhuCeFlag = 1;
+				break;
 			}
 			default:
 			{

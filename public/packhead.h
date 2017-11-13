@@ -9,6 +9,8 @@ typedef enum
 	ARP,	//ARP包，告诉服务器记录客户端的IP
 	LOOK,	//查看在线人员
 	TALK,	//数据包
+	ZHUCE,	//注册请求包
+	DENGLU, //登录请求包
 }CMDLIST;
 typedef struct _pack_head
 {

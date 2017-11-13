@@ -6,3 +6,4 @@
 #define SER_LISTEN_FAILED     -4
 #define RECV_FAILED           -5
 #define SEND_FAILED			  -6
+#define ZHUCE_FAILED		  -7
