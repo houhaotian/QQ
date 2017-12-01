@@ -18,7 +18,7 @@
 
 using namespace std;
 
-int client::zhuCeFlag = 0;
+int client::zhuCeFlag = ZHUCE_FAILED;
 
 client::client()
 {
@@ -149,6 +149,7 @@ int client::send_look_request()
 
 /* ARP包帧格式：
 	" pack_head + payload(hello world) "
+	"ARP帧中包括自己的fd，名字"
 */
 int client::send_arp()
 {
@@ -175,10 +176,16 @@ int client::zhuce()
 	int i = 3,ret;
 	int flag = 0;
 	int mes_len;
-	char arp_message[1024];
+	int temp_len;
+	char arp_message[1024] = {0};
 	std::string acount,passwd;
 	std::string temp_data;
-
+	SEND_ZHUCE_MSG m1;
+	/*帧头：fd,0,len,NULL,*/
+	/*account_len[7:0],
+	account[31:8],
+	passwd_len[39:32],
+	passwd[63:40]*/
 	cout << "登录界面,type 1注册, 2登录, 3退出" << endl;
 	cin >> flag;
 	switch (flag)
@@ -191,10 +198,18 @@ int client::zhuce()
 				cin >> acount;
 				cout << "请输入密码" << endl;
 				cin >> passwd;
-
+				/*怎么填帧。有意思了*/
 				temp_data += acount;
-				temp_data += passwd;
+				temp_len = 24 - acount.size();
+				while (temp_len--) {
+					temp_data += '/0';
+				}
 
+				temp_data += passwd;
+				temp_len = 24-passwd.size();
+				while (temp_len--) {
+					temp_data += '/0';
+				}
 				construct_packet_head(fd, 0, temp_data.length(), "NULL", ZHUCE);//组帧头
 				mes_len = get_package(arp_message, temp_data, mypackhead);//组帧，返回整个buffer长度
 				ret = send(fd, arp_message, mes_len, 0);
@@ -306,10 +321,10 @@ DWORD WINAPI client::listenSer(LPVOID pM)
 					std::cout << "RECV data error" << std::endl;
 					return RECV_FAILED;
 				}
-				if (listen_buffer[0] == 0)
-					zhuCeFlag = 0;
+				if (listen_buffer[0] == ZHUCE_FAILED_FLAG)
+					zhuCeFlag = ZHUCE_FAILED_FLAG;
 				else
-					zhuCeFlag = 1;
+					zhuCeFlag = ZHUCE_SUCCESS_FLAG;
 				break;
 			}
 			default:

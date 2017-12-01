@@ -85,7 +85,7 @@ int server::server_login()
 	addr_len = sizeof(cliaddr);
 
 	fd_set rset, allset;
-	int max_fd = listen_fd;
+	int max_fd = (int)listen_fd;
 	FD_ZERO(&allset);
 	FD_SET(listen_fd, &allset);
 	while (1)
@@ -106,13 +106,13 @@ int server::server_login()
 				cli_fd = accept(listen_fd, (struct sockaddr*)&cliaddr, &addr_len);
 				std::cout << "accept client success" << std::endl;
 				FD_SET(cli_fd, &allset);
-				if (cli_fd > max_fd)
-					max_fd = cli_fd;
+				if ((int)cli_fd > max_fd)
+					max_fd = (int)cli_fd;
 
 				clientinfo = fill_arg(cli_fd, cliaddr, "NULL");
 				cli_info.push_back(clientinfo);
 			}
-			for (int i = 0; i < cli_info.size(); ++i)	//在这里做客户端读写控制
+			for (int i = 0; i < (int)cli_info.size(); ++i)	//在这里做客户端读写控制
 			{
 				if (FD_ISSET(cli_info.at(i).cli_fd, &rset))
 				{
@@ -271,7 +271,10 @@ int server::zhuce_program(client_addr clientinfo, int data_len)
 	char message[40 * 1024];
 	Pack_head p_head;
 	int mes_len;
-
+	//std::string temp_acount;
+//	std::string temp_passwd;
+	char *temp_acount;
+	char *temp_passwd;
 	memset(recv_data, 0, 40 * 1024);
 	memset(message, 0, 40 * 1024);
 
@@ -281,17 +284,19 @@ int server::zhuce_program(client_addr clientinfo, int data_len)
 		return RECV_FAILED;
 	}
 	std::cout << recv_data << std::endl;
-#if 0
-	/*把账号放在vector里*/
-	tempinfo = fill_arg(clientinfo.cli_fd, clientinfo.cli_addr, clientinfo.name);
-	/*根据clientinfo.cli_fd查找cli_info对应的vector,把name替换*/
-	std::vector<client_addr>::iterator it;
-	it = std::find_if(cli_info.begin(), cli_info.end(), compare_is_fd(clientinfo.cli_fd));
-	*it = tempinfo;
-#endif
 
+	/*debug,看看账户名密码存放过程。还不对，string接收不到char[];*/
+	temp_acount = recv_data;
+	temp_passwd = recv_data + 24;
+	std::cout << temp_acount << std::endl;
+	std::cout << temp_passwd << std::endl;
+
+	/*查看sql是否有该用户名，没有则注册成功存到sql，失败则不回复下面的1。*/
+
+	/*回客户端1代表注册成功*/
 	p_head = construct_packethead(clientinfo.cli_fd, 0, 1, "NULL", ZHUCE);//组帧头
-	mes_len = get_package(message, "1", p_head);
+	char zhuceflag = ZHUCE_SUCCESS_FLAG;
+	mes_len = get_package(message, &zhuceflag, p_head);
 	ret = send(clientinfo.cli_fd, message, mes_len, 0);
 	if (ret == SOCKET_ERROR) {
 		std::cout << "SEND data error" << std::endl;
