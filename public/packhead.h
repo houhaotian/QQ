@@ -26,13 +26,6 @@ typedef struct _pack_head
 }Pack_head;
 
 
-typedef struct _SEND_ZHUCE_MSG
-{
-	int account_len : 8; //[7:0]
-	int account : 24;	 //[31:8]
-	int passwd_len : 8;	 //[39:32]
-	int passwd : 24;	 //[63:40]
-}SEND_ZHUCE_MSG;
 
 Pack_head construct_packethead(SOCKET source_fd, SOCKET des_fd, int messege_len, std::string myname, CMDLIST cmd);
 

@@ -180,12 +180,10 @@ int client::zhuce()
 	char arp_message[1024] = {0};
 	std::string acount,passwd;
 	std::string temp_data;
-	SEND_ZHUCE_MSG m1;
+	char tempframe[64] = {0};
+
 	/*帧头：fd,0,len,NULL,*/
-	/*account_len[7:0],
-	account[31:8],
-	passwd_len[39:32],
-	passwd[63:40]*/
+	/*account_len[7:0],account[31:8],passwd_len[39:32],passwd[63:40]*/
 	cout << "登录界面,type 1注册, 2登录, 3退出" << endl;
 	cin >> flag;
 	switch (flag)
@@ -199,21 +197,24 @@ int client::zhuce()
 				cout << "请输入密码" << endl;
 				cin >> passwd;
 				/*怎么填帧。有意思了*/
-				temp_data += acount;
-				temp_len = 24 - acount.size();
-				while (temp_len--) {
-					temp_data += '/0';
-				}
+				temp_len = acount.size();
+				temp_data = to_string(temp_len);
+				memcpy(&tempframe[0], temp_data.c_str(), 8);//[7:0]
+				memcpy(&tempframe[8], acount.c_str(), temp_len);//[31:8]
 
-				temp_data += passwd;
-				temp_len = 24-passwd.size();
-				while (temp_len--) {
-					temp_data += '/0';
-				}
+				temp_len = passwd.size();
+				temp_data = to_string(temp_len);
+				memcpy(&tempframe[32], temp_data.c_str(), 8);//[39:32]
+				memcpy(&tempframe[40], passwd.c_str(), temp_len);//[63:40]
+			//	temp_data = tempframe;
+
+		//		cout << &tempframe[0] << &tempframe[8] << &tempframe[32] << &tempframe[40] << endl;
+				cout << temp_data << endl;
+
 				construct_packet_head(fd, 0, temp_data.length(), "NULL", ZHUCE);//组帧头
 				mes_len = get_package(arp_message, temp_data, mypackhead);//组帧，返回整个buffer长度
 				ret = send(fd, arp_message, mes_len, 0);
-				system("cls");
+		//		system("cls");
 				cout << "loading.";
 				Sleep(1000);
 				cout << ".";
