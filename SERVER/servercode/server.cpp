@@ -277,48 +277,16 @@ int server::zhuce_program(client_addr clientinfo, int data_len)
 		cout << "RECV data error" << endl;
 		return RECV_FAILED;
 	}
-	cout << recv_data << endl;
 
-	string temp_len;
 	string temp_acount;
 	string temp_passwd;
-	int len1;
-	int tempflag1 = 0;
-	int tempflag2 = 0;
-	if ((48 <= recv_data[1]) && (recv_data[1] <= 57))//是数字
-	{
-		temp_len.append(&recv_data[0], 2);
-		len1 = stoi(temp_len);
-		tempflag1 = 1;
-	}
-	else
-	{
-		temp_len.append(&recv_data[0], 1);
-		len1 = stoi(temp_len);
-		tempflag1 = 0;
-	}
-	temp_acount.append(&recv_data[tempflag1+1], len1);
+	UINT8 temp_len;
 
-	if ((48 <= recv_data[tempflag1 + 2 + len1]) && (recv_data[tempflag1 + 2 + len1] <= 57))//是数字
-	{/*不行，密码数字开头没法判断*/
-		temp_len.clear();
-		temp_len.append(&recv_data[tempflag1 + 1 + len1], 2);
-		len1 = stoi(temp_len);
-		tempflag2 = 1;
-	}
-	else
-	{
-		temp_len.clear();
-		temp_len.append(&recv_data[tempflag1 + 1 + len1], 1);
-		len1 = stoi(temp_len);
-		tempflag2 = 0;
-	}
-	cout << temp_len << "  " << len1 << endl;
+	temp_len = recv_data[0];
+	temp_acount.append(&recv_data[1], temp_len);
+	temp_len = recv_data[25];
+	temp_passwd.append(&recv_data[26], temp_len);
 
-	temp_passwd.append(&recv_data[tempflag1 + tempflag2 + 2 + len1], len1);
-
-	cout << "acount"<< temp_acount << endl;
-	cout << "passwd"<< temp_passwd << endl;
 
 	/*查看sql是否有该用户名，没有则注册成功存到sql，失败则不回复下面的1。*/
 

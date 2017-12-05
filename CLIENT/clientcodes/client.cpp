@@ -179,6 +179,7 @@ int client::zhuce()
 
 	/*帧头：fd,0,len,NULL,*/
 	/*account_len 1B,account 24B ,passwd_len 1B,passwd 24B*/
+	/*| [0]len  [1]~[24]account [25]len [26]~[50]passwd  |*/
 	cout << "登录界面,type 1注册, 2登录, 3退出" << endl;
 	cin >> flag;
 	switch (flag)
@@ -187,37 +188,29 @@ int client::zhuce()
 		{
 			while (i--)
 			{
-				cout << "請輸入用戶名" << endl;
+				cout << "請輸入账户名" << endl;
 				cin >> acount;
 				cout << "请输入密码" << endl;
 				cin >> passwd;
-				/*不纠结了，做一个用户名必须字母开头的吧*/
-				/*if acount.data(1)不是字母*/
-#if 0
-				string temp_data, temp_len;
-				temp_len = to_string(acount.size());
-				temp_data = temp_len;
-				temp_data += acount;
-				temp_len = to_string(passwd.size());
-				temp_data += temp_len;
-				temp_data += passwd;
-				cout << temp_data << endl;
-#endif
+
 				UINT8 tempframe[64] = { 0 };
-				UINT8 templength = acount.size();
-				tempframe[0] = templength;
-				memcpy(&tempframe[1], acount.c_str(), templength);
-				UINT8 templength = passwd.size();
-				tempframe[25] = templength;
-				memcpy(&tempframe[26], passwd.c_str(), templength);
-			//	string temp_data = tempframe;
+				/*账号名密码不能超过16字节*/
+				tempframe[0] = acount.size();
+				memcpy(&tempframe[1], acount.c_str(), acount.size());
+				tempframe[25] = passwd.size();
+				memcpy(&tempframe[26], passwd.c_str(), passwd.size());
+
+				string temp_data;
+				temp_data.append((char *)tempframe, 64);
+				
 
 				int mes_len;
-				UINT8 arp_message[1024] = { 0 };
+				char arp_message[1024] = { 0 };
 				construct_packet_head(fd, 0, temp_data.length(), "NULL", ZHUCE);//组帧头
 				mes_len = get_package(arp_message, temp_data, mypackhead);//组帧，返回整个buffer长度
 				ret = send(fd, arp_message, mes_len, 0);
-		//		system("cls");
+				system("cls");
+				Sleep(1);
 				if (zhuCeFlag == 1)
 					return RUN_SUCCESS;
 				cout << "用户名或密码重复，请重新输入" << endl;
