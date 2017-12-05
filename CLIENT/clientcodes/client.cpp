@@ -173,17 +173,12 @@ int client::send_arp()
 
 int client::zhuce()
 {
-	int i = 3,ret;
+	int i = 3, ret;
 	int flag = 0;
-	int mes_len;
-	int temp_len;
-	char arp_message[1024] = {0};
-	std::string acount,passwd;
-	std::string temp_data;
-	char tempframe[64] = {0};
+	string acount, passwd;
 
 	/*帧头：fd,0,len,NULL,*/
-	/*account_len[7:0],account[31:8],passwd_len[39:32],passwd[63:40]*/
+	/*account_len 1B,account 24B ,passwd_len 1B,passwd 24B*/
 	cout << "登录界面,type 1注册, 2登录, 3退出" << endl;
 	cin >> flag;
 	switch (flag)
@@ -196,32 +191,33 @@ int client::zhuce()
 				cin >> acount;
 				cout << "请输入密码" << endl;
 				cin >> passwd;
-				/*怎么填帧。有意思了*/
-				temp_len = acount.size();
-				temp_data = to_string(temp_len);
-				memcpy(&tempframe[0], temp_data.c_str(), 8);//[7:0]
-				memcpy(&tempframe[8], acount.c_str(), temp_len);//[31:8]
-
-				temp_len = passwd.size();
-				temp_data = to_string(temp_len);
-				memcpy(&tempframe[32], temp_data.c_str(), 8);//[39:32]
-				memcpy(&tempframe[40], passwd.c_str(), temp_len);//[63:40]
-			//	temp_data = tempframe;
-
-		//		cout << &tempframe[0] << &tempframe[8] << &tempframe[32] << &tempframe[40] << endl;
+				/*不纠结了，做一个用户名必须字母开头的吧*/
+				/*if acount.data(1)不是字母*/
+#if 0
+				string temp_data, temp_len;
+				temp_len = to_string(acount.size());
+				temp_data = temp_len;
+				temp_data += acount;
+				temp_len = to_string(passwd.size());
+				temp_data += temp_len;
+				temp_data += passwd;
 				cout << temp_data << endl;
+#endif
+				UINT8 tempframe[64] = { 0 };
+				UINT8 templength = acount.size();
+				tempframe[0] = templength;
+				memcpy(&tempframe[1], acount.c_str(), templength);
+				UINT8 templength = passwd.size();
+				tempframe[25] = templength;
+				memcpy(&tempframe[26], passwd.c_str(), templength);
+			//	string temp_data = tempframe;
 
+				int mes_len;
+				UINT8 arp_message[1024] = { 0 };
 				construct_packet_head(fd, 0, temp_data.length(), "NULL", ZHUCE);//组帧头
 				mes_len = get_package(arp_message, temp_data, mypackhead);//组帧，返回整个buffer长度
 				ret = send(fd, arp_message, mes_len, 0);
 		//		system("cls");
-				cout << "loading.";
-				Sleep(1000);
-				cout << ".";
-				Sleep(1000);
-				cout << ".";
-				Sleep(1000);
-				cout << endl;
 				if (zhuCeFlag == 1)
 					return RUN_SUCCESS;
 				cout << "用户名或密码重复，请重新输入" << endl;

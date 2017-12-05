@@ -15,7 +15,9 @@
 
 #define SERVER_PORT 8000
 
-std::vector<client_addr> server::cli_info;
+using namespace std;
+
+vector<client_addr> server::cli_info;
 
 
 class compare_is_fd
@@ -68,7 +70,7 @@ int server::server_login()
 		return SER_BIND_FAILED;
 
 	}
-	std::cout << "bind success" << std::endl;
+	cout << "bind success" << endl;
 	ret = listen(listen_fd, 20);
 	if (ret < 0)
 	{
@@ -76,7 +78,7 @@ int server::server_login()
 		closesocket(listen_fd);
 		return SER_LISTEN_FAILED;
 	}
-	std::cout << "listen success" << std::endl;
+	cout << "listen success" << endl;
 
 	int addr_len;
 	struct sockaddr_in cliaddr;
@@ -104,7 +106,7 @@ int server::server_login()
 			if (FD_ISSET(listen_fd, &rset)) //有客户端连接请求。
 			{
 				cli_fd = accept(listen_fd, (struct sockaddr*)&cliaddr, &addr_len);
-				std::cout << "accept client success" << std::endl;
+				cout << "accept client success" << endl;
 				FD_SET(cli_fd, &allset);
 				if ((int)cli_fd > max_fd)
 					max_fd = (int)cli_fd;
@@ -136,7 +138,7 @@ DWORD WINAPI server::listenCli(LPVOID pM, fd_set * rset, fd_set * allset)
 
 	ret = recv(clientinfo.cli_fd, (char *)&pack_head, sizeof(pack_head), 0);
 	if (ret == SOCKET_ERROR) {
-		std::cout << "RECV pack_head error!" << std::endl;
+		cout << "RECV pack_head error!" << endl;
 		closesocket(clientinfo.cli_fd);
 		FD_CLR(clientinfo.cli_fd, allset);
 		printf("bye!");
@@ -189,23 +191,23 @@ int server::recv_arp(client_addr clientinfo, int datalen)
 	client_addr tempinfo;
 	tempinfo = fill_arg(clientinfo.cli_fd, clientinfo.cli_addr, clientinfo.name);
 	/*根据clientinfo.cli_fd查找cli_info对应的vector,把name替换*/
-	std::vector<client_addr>::iterator it;
-	it = std::find_if(cli_info.begin(), cli_info.end(), compare_is_fd(clientinfo.cli_fd));
+	vector<client_addr>::iterator it;
+	it = find_if(cli_info.begin(), cli_info.end(), compare_is_fd(clientinfo.cli_fd));
 	*it = tempinfo;
 
 	ret = recv(tempinfo.cli_fd, recv_data, datalen, 0);
 	if (ret == SOCKET_ERROR) {
-		std::cout << "RECV data error" << std::endl;
+		cout << "RECV data error" << endl;
 		return RECV_FAILED;
 	}
-	std::cout << recv_data << std::endl;
-	std::cout << clientinfo.cli_fd << std::endl;
+	cout << recv_data << endl;
+	cout << clientinfo.cli_fd << endl;
 	return RUN_SUCCESS;
 }
 
 int server::send_onlinelist(client_addr clientinfo, int src_len)
 {
-	std::cout << "client income online request:" << std::endl;
+	cout << "client income online request:" << endl;
 	Pack_head p_head;
 	char message[40 * 1024];
 	char list_data[40 * 1024];
@@ -216,24 +218,24 @@ int server::send_onlinelist(client_addr clientinfo, int src_len)
 
 	ret = recv(clientinfo.cli_fd, message, src_len, 0);
 	if (ret == SOCKET_ERROR) {
-		std::cout << "RECV data error" << std::endl;
+		cout << "RECV data error" << endl;
 		return RECV_FAILED;
 	}
 
-	std::vector<client_addr>::iterator it;
+	vector<client_addr>::iterator it;
 	for (it = cli_info.begin(); it < cli_info.end(); ++it)
 	{
 		memcpy(list_data + len, &it->cli_fd, sizeof(size_t));
-		std::cout << it->cli_fd << std::endl;
+		cout << it->cli_fd << endl;
 		memcpy(list_data + sizeof(size_t) + len, it->name, 24);
-		std::cout << it->name << std::endl;
+		cout << it->name << endl;
 		len += sizeof(size_t) + 24;//数据长度
 	}
 	p_head = construct_packethead(clientinfo.cli_fd, 0, len, "hello world", LOOK);//组帧头
 	mes_len = get_package(message, list_data, p_head);
 	ret = send(clientinfo.cli_fd, message, mes_len, 0);
 	if (ret == SOCKET_ERROR) {
-		std::cout << "SEND data error" << std::endl;
+		cout << "SEND data error" << endl;
 		return SEND_FAILED;
 	}
 	return RUN_SUCCESS;
@@ -250,15 +252,15 @@ int server::trans_word(client_addr clientinfo, SOCKET dfd, int data_len)
 	int ret;
 	ret = recv(clientinfo.cli_fd, recv_data, data_len, 0);
 	if (ret == SOCKET_ERROR) {
-		std::cout << "RECV data error" << std::endl;
+		cout << "RECV data error" << endl;
 		return RECV_FAILED;
 	}
-	std::cout << recv_data << std::endl;
+	cout << recv_data << endl;
 	p_head = construct_packethead(clientinfo.cli_fd, dfd, data_len, clientinfo.name, TALK);//组帧头
 	mes_len = get_package(message, recv_data, p_head);
 	ret = send(dfd, message, mes_len, 0);
 	if (ret == SOCKET_ERROR) {
-		std::cout << "SEND data error" << std::endl;
+		cout << "SEND data error" << endl;
 		return SEND_FAILED;
 	}
 	return RUN_SUCCESS;
@@ -267,39 +269,70 @@ int server::trans_word(client_addr clientinfo, SOCKET dfd, int data_len)
 int server::zhuce_program(client_addr clientinfo, int data_len)
 {
 	int ret;
+	
 	char recv_data[40 * 1024];
-	char message[40 * 1024];
-	Pack_head p_head;
-	int mes_len;
-	//std::string temp_acount;
-//	std::string temp_passwd;
-	char *temp_acount;
-	char *temp_passwd;
 	memset(recv_data, 0, 40 * 1024);
-	memset(message, 0, 40 * 1024);
-
 	ret = recv(clientinfo.cli_fd, recv_data, data_len, 0);
 	if (ret == SOCKET_ERROR) {
-		std::cout << "RECV data error" << std::endl;
+		cout << "RECV data error" << endl;
 		return RECV_FAILED;
 	}
-	std::cout << recv_data << std::endl;
+	cout << recv_data << endl;
 
-	/*debug,看看账户名密码存放过程。还不对，string接收不到char[];*/
-	temp_acount = recv_data;
-	temp_passwd = recv_data + 24;
-	std::cout << temp_acount << std::endl;
-	std::cout << temp_passwd << std::endl;
+	string temp_len;
+	string temp_acount;
+	string temp_passwd;
+	int len1;
+	int tempflag1 = 0;
+	int tempflag2 = 0;
+	if ((48 <= recv_data[1]) && (recv_data[1] <= 57))//是数字
+	{
+		temp_len.append(&recv_data[0], 2);
+		len1 = stoi(temp_len);
+		tempflag1 = 1;
+	}
+	else
+	{
+		temp_len.append(&recv_data[0], 1);
+		len1 = stoi(temp_len);
+		tempflag1 = 0;
+	}
+	temp_acount.append(&recv_data[tempflag1+1], len1);
+
+	if ((48 <= recv_data[tempflag1 + 2 + len1]) && (recv_data[tempflag1 + 2 + len1] <= 57))//是数字
+	{/*不行，密码数字开头没法判断*/
+		temp_len.clear();
+		temp_len.append(&recv_data[tempflag1 + 1 + len1], 2);
+		len1 = stoi(temp_len);
+		tempflag2 = 1;
+	}
+	else
+	{
+		temp_len.clear();
+		temp_len.append(&recv_data[tempflag1 + 1 + len1], 1);
+		len1 = stoi(temp_len);
+		tempflag2 = 0;
+	}
+	cout << temp_len << "  " << len1 << endl;
+
+	temp_passwd.append(&recv_data[tempflag1 + tempflag2 + 2 + len1], len1);
+
+	cout << "acount"<< temp_acount << endl;
+	cout << "passwd"<< temp_passwd << endl;
 
 	/*查看sql是否有该用户名，没有则注册成功存到sql，失败则不回复下面的1。*/
 
 	/*回客户端1代表注册成功*/
+	Pack_head p_head;
 	p_head = construct_packethead(clientinfo.cli_fd, 0, 1, "NULL", ZHUCE);//组帧头
 	char zhuceflag = ZHUCE_SUCCESS_FLAG;
+	int mes_len = 0;
+	char message[40 * 1024];
+	memset(message, 0, 40 * 1024);
 	mes_len = get_package(message, &zhuceflag, p_head);
 	ret = send(clientinfo.cli_fd, message, mes_len, 0);
 	if (ret == SOCKET_ERROR) {
-		std::cout << "SEND data error" << std::endl;
+		cout << "SEND data error" << endl;
 		return SEND_FAILED;
 	}
 	return RUN_SUCCESS;
