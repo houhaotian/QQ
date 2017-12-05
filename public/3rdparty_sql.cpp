@@ -2,38 +2,10 @@
 #include <string>
 #include <winsock2.h>
 #include <mysql.h>
+#include "3rdparty_sql.h"
 
 using namespace std;
-
-
-
-
-class SelfMysql
-{
-public:
-	SelfMysql(string inName, string inAccount, string inPasswd);
-	SelfMysql(string inAccount, string inPasswd);
-	MYSQL * mysql_get_conn();
-	int mysql_execute(char *, MYSQL_RES **);
-	int qq_insert();
-	int qq_get();
-	void close();
-
-private:
-	string name;
-	string account;
-	string passwd;
-
-private:
-	MYSQL *mysql_conn = NULL;
-
-	const string mysql_server = "localhost";//mysql 数据库主机
-	const string mysql_user = "root";//mysql 管理登录用户
-	const string mysql_password = "123456";//mysql 管理登录密码
-	const string mysql_database = "selfqq";//使用的数据库。
-	const string mysql_table = "qqdata";
-	int my_port = 3306;
-};
+/*返回-1失败，0成功*/
 
 SelfMysql::SelfMysql(string inName, string inAccount, string inPasswd) :name(inName), account(inAccount), passwd(inPasswd)
 {
@@ -44,7 +16,7 @@ SelfMysql::SelfMysql(string inAccount, string inPasswd) : account(inAccount), pa
 {
 }
 
-MYSQL * SelfMysql::mysql_get_conn()
+MYSQL * SelfMysql::_mysql_get_conn()
 {
 	if (mysql_conn != NULL)
 		return mysql_conn;
@@ -62,11 +34,11 @@ MYSQL * SelfMysql::mysql_get_conn()
 }
 
 
-int  SelfMysql::mysql_execute(char *sqlcmd, MYSQL_RES **pres)
+int  SelfMysql::_mysql_execute(char *sqlcmd, MYSQL_RES **pres)
 {
 	static	MYSQL *conn;
 	MYSQL_RES *res;
-	conn = mysql_get_conn();
+	conn = _mysql_get_conn();
 
 	//执行 指定数据库
 	if (mysql_query(conn, sqlcmd)) {
@@ -84,53 +56,57 @@ int  SelfMysql::mysql_execute(char *sqlcmd, MYSQL_RES **pres)
 int SelfMysql::qq_insert()
 {
 	char sql_cmd[1024];
+	int ret;
 
 	sprintf_s(sql_cmd, "insert into %s values('%s','%s',%s)", mysql_table.c_str(), name.c_str(), account.c_str(), passwd.c_str());
 	printf("%s\n", sql_cmd);
 
-	mysql_execute(sql_cmd, NULL);
-	printf("%s\n", sql_cmd);
-
+	ret = _mysql_execute(sql_cmd, NULL);
+//	printf("%s\n", sql_cmd);
 	//	close();
-	return 0;
+	return ret;
 }
 
 
-
-int SelfMysql::qq_get()
+//判断sql中有没有account，没有则0，否则返回-1
+int SelfMysql::qq_check_account_exist(string inAccount)
 {
 	char sql_cmd[1024];
 	MYSQL_RES *res;
-	MYSQL_ROW row;
+//	MYSQL_ROW row;
 	int fnum = 0;
-	char name[16];
-	char account[16];
-	char passwd[16];
-
-	sprintf_s(sql_cmd, "select * from %s", mysql_table.c_str());
+//	char name[16];
+//	char account[16];
+//	char passwd[16];
+	int ret;
+	sprintf_s(sql_cmd, "select * from %s where account = '%s'", mysql_table.c_str(), inAccount.c_str());
 	printf("%s\n", sql_cmd);
-	mysql_execute(sql_cmd, &res);
-
+	ret=_mysql_execute(sql_cmd, &res);
+	if (ret < 0)
+		return ret;
 
 	fnum = mysql_num_fields(res);//返回值为列数。
-
-								 //一行一行的获取数据，依次向后
-	while ((row = mysql_fetch_row(res)) != NULL) {
+	if (fnum)
+		return -1;		//sql中有account
+#if 0
+ //一行一行的获取数据，依次向后
+	while ((row = mysql_fetch_row(res)) != NULL)
+	{
 		strcpy_s(name, row[0]);
 		strcpy_s(account, row[1]);
 		strcpy_s(passwd, row[2]);
-
-		printf(" %s,%s,%s\n", name, account, passwd);
 	}
+	//	printf(" %s,%s,%s\n", name, account, passwd);
 	mysql_free_result(res);
+#endif
 	//	close();
-	return 0;
+	return 0;//没有account
 }
 
 
 void SelfMysql::close()
 {
-	mysql_close(mysql_get_conn());
+	mysql_close(_mysql_get_conn());
 }
 
 
@@ -141,10 +117,9 @@ int main()
 	string name = "侯昊天";
 	string account = "houhaotian";
 	string passwd = "123456";
-
+	int ret;
 	SelfMysql m1(name, account, passwd);
+	ret = m1.qq_insert();
 
-	m1.qq_insert();
-	m1.qq_get();
 }
 #endif

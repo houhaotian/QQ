@@ -11,6 +11,7 @@
 #include <xutility>
 #include <algorithm>
 #include <vector>
+#include "..\..\public\3rdparty_sql.h"
 #pragma comment(lib, "ws2_32.lib")
 
 #define SERVER_PORT 8000
@@ -289,19 +290,30 @@ int server::zhuce_program(client_addr clientinfo, int data_len)
 
 
 	/*查看sql是否有该用户名，没有则注册成功存到sql，失败则不回复下面的1。*/
-
-	/*回客户端1代表注册成功*/
-	Pack_head p_head;
-	p_head = construct_packethead(clientinfo.cli_fd, 0, 1, "NULL", ZHUCE);//组帧头
-	char zhuceflag = ZHUCE_SUCCESS_FLAG;
-	int mes_len = 0;
-	char message[40 * 1024];
-	memset(message, 0, 40 * 1024);
-	mes_len = get_package(message, &zhuceflag, p_head);
-	ret = send(clientinfo.cli_fd, message, mes_len, 0);
-	if (ret == SOCKET_ERROR) {
-		cout << "SEND data error" << endl;
-		return SEND_FAILED;
+	SelfMysql mysql_use1(temp_acount, temp_passwd);
+	ret = mysql_use1.qq_check_account_exist(temp_acount);
+	if (ret == 0)
+	{
+		ret = mysql_use1.qq_insert();
+		if (ret == 0)
+		{
+			/*回客户端1代表注册成功*/
+			Pack_head p_head;
+			p_head = construct_packethead(clientinfo.cli_fd, 0, 1, "NULL", ZHUCE);//组帧头
+			char zhuceflag = ZHUCE_SUCCESS_FLAG;
+			int mes_len = 0;
+			char message[40 * 1024];
+			memset(message, 0, 40 * 1024);
+			mes_len = get_package(message, &zhuceflag, p_head);
+			ret = send(clientinfo.cli_fd, message, mes_len, 0);
+			if (ret == SOCKET_ERROR) {
+				cout << "SEND data error" << endl;
+				return SEND_FAILED;
+			}
+			return RUN_SUCCESS;
+		}
+		return RUN_SUCCESS;
 	}
-	return RUN_SUCCESS;
+	else
+		return RUN_SUCCESS;
 }
